@@ -1,0 +1,46 @@
+hostname: R1
+loopback_ipv4: 10.255.1.1
+loopback_ipv6: 2001:DB8:1::1
+
+interfaces:
+  - name: Loopback0
+    ipv4: 10.255.1.1/32
+    ipv6: 2001:DB8:1::1/128
+    ospf: true
+    ospfv3: true
+
+  - name: GigabitEthernet0/0
+    desc: R1-R3
+    ipv4: 10.0.0.1/30
+    ipv6: 2001:DB8:0:13::1/64
+    ospf: true
+    ospfv3: true
+
+  - name: GigabitEthernet0/1
+    desc: R1-R4
+    ipv4: 10.0.0.9/30
+    ipv6: 2001:DB8:0:14::1/64
+    ospf: true
+    ospfv3: true
+
+  - name: GigabitEthernet0/2
+    desc: R1-ISP1
+    ipv4: 10.0.0.37/30
+    ipv6: 2001:DB8:FD00::1/64
+
+bgp:
+  router_id: 10.255.1.1
+  neighbors_ipv4:
+    - { addr: 10.0.0.38, remote_as: 65010, edge_isp: true }
+    - { addr: 10.255.1.3, remote_as: 65001, rr: true }
+    - { addr: 10.255.1.4, remote_as: 65001, rr: true }
+  neighbors_ipv6:
+    - { addr: 2001:DB8:1::3, remote_as: 65001, rr: true }
+    - { addr: 2001:DB8:1::4, remote_as: 65001, rr: true }
+    - { addr: 2001:DB8:FD00::9, remote_as: 65010, edge_isp: true }
+  networks_ipv4:
+    - 10.10.10.1/32
+    - 10.11.11.1/32
+    - 10.255.1.1/32
+  networks_ipv6:
+    - 2001:DB8:1::1/128

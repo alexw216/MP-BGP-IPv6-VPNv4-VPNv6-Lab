@@ -1,0 +1,3 @@
+role: pe
+vpnv4_enabled: true
+vpnv6_enabled: true

@@ -1,0 +1,17 @@
+asn: 65001
+
+ospf_process: 10
+ospf_area: 0
+
+ospfv3_process: 10
+ospfv3_area: 0
+
+mpls_enabled: true
+
+vrfs:
+  - name: CUST-A
+    rd: "65001:100"
+    rt_import:
+      - "65001:100"
+    rt_export:
+      - "65001:100"

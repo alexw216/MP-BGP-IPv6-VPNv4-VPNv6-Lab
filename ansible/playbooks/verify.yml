@@ -1,0 +1,37 @@
+- name: Verify control-plane and data-plane
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Show BGP IPv4 summary
+      cisco.ios.ios_command:
+        commands:
+          - show bgp ipv4 unicast summary
+      register: bgp4
+
+    - name: Show BGP IPv6 summary
+      cisco.ios.ios_command:
+        commands:
+          - show bgp ipv6 unicast summary
+      register: bgp6
+
+    - name: Show VPNv4 summary (PE/RR only)
+      when: role in ['pe', 'rr']
+      cisco.ios.ios_command:
+        commands:
+          - show bgp vpnv4 all summary
+      register: vpnv4
+
+    - name: Show VPNv6 summary (PE/RR only)
+      when: role in ['pe', 'rr']
+      cisco.ios.ios_command:
+        commands:
+          - show bgp vpnv6 all summary
+      register: vpnv6
+
+    - debug:
+        msg:
+          - "BGP IPv4: {{ bgp4.stdout_lines | default([]) }}"
+          - "BGP IPv6: {{ bgp6.stdout_lines | default([]) }}"
+          - "VPNv4: {{ vpnv4.stdout_lines | default([]) }}"
+          - "VPNv6: {{ vpnv6.stdout_lines | default([]) }}"

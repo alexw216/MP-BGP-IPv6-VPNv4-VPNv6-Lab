@@ -1,0 +1,15 @@
+- name: Backup running-config
+  hosts: all
+  gather_facts: no
+
+  tasks:
+    - name: Collect running-config
+      cisco.ios.ios_command:
+        commands:
+          - show running-config
+      register: run
+
+    - name: Save to file
+      copy:
+        content: "{{ run.stdout[0] }}"
+        dest: ./backups/{{ inventory_hostname }}.cfg

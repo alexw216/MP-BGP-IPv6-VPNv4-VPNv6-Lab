@@ -1,0 +1,26 @@
+hostname: R10
+asn: 65020
+
+interfaces:
+  - name: Loopback0
+    ipv4: 100.64.0.2/32
+
+  - name: GigabitEthernet0/0
+    desc: R10-R2
+    ipv4: 10.0.0.42/30
+    ipv6: 2001:DB8:FD02::10/64
+
+bgp:
+  router_id: 100.64.0.2
+
+  neighbors_ipv4:
+    - { addr: 10.0.0.41, remote_as: 65001 }
+
+  neighbors_ipv6:
+    - { addr: 2001:DB8:FD02::2, remote_as: 65001 }
+
+  networks_ipv4:
+    - 100.64.0.2/32
+
+  networks_ipv6:
+    - ::/0

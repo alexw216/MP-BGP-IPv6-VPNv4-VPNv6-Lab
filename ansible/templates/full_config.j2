@@ -1,0 +1,200 @@
+! Base
+hostname {{ hostname }}
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+
+!
+
+{% for intf in interfaces %}
+interface {{ intf.name }}
+{% if intf.desc is defined %}
+ description {{ intf.desc }}
+{% endif %}
+{% if intf.vrf is defined %}
+ vrf forwarding {{ intf.vrf }}
+{% endif %}
+{% if intf.ipv4 is defined %}
+ ip address {{ intf.ipv4.split('/')[0] }} {{ intf.ipv4 | ipaddr('netmask') }}
+{% endif %}
+{% if intf.ipv6 is defined %}
+ ipv6 address {{ intf.ipv6 }}
+{% endif %}
+{% if intf.ospf | default(false) %}
+ ip ospf network point-to-point
+{% endif %}
+{% if intf.ospfv3 | default(false) %}
+ ipv6 ospf {{ ospfv3_process }} area {{ ospfv3_area }}
+{% endif %}
+{% if intf.mpls | default(false) and mpls_enabled | default(false) %}
+ mpls ip
+{% endif %}
+!
+{% endfor %}
+
+{% if role != 'isp' %}
+router ospf {{ ospf_process }}
+ router-id {{ loopback_ipv4 }}
+ passive-interface Loopback0
+{% for intf in interfaces if intf.ospf | default(false) and 'Loopback' not in intf.name %}
+ network {{ intf.ipv4.split('/')[0] }} 0.0.0.3 area {{ ospf_area }}
+{% endfor %}
+ network {{ loopback_ipv4 }} 0.0.0.0 area {{ ospf_area }}
+
+ipv6 router ospf {{ ospfv3_process }}
+ router-id {{ loopback_ipv4 }}
+{% endif %}
+
+{% if core_mpls | default(false) and role != 'isp' %}
+mpls label protocol ldp
+mpls ldp router-id Loopback0 force
+{% endif %}
+
+{% if role != 'isp' %}
+router bgp {{ asn }}
+ bgp router-id {{ bgp.router_id }}
+ bgp log-neighbor-changes
+
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+ neighbor {{ n.addr }} remote-as {{ n.remote_as }}
+{% if not n.edge_isp | default(false) %}
+ neighbor {{ n.addr }} update-source Loopback0
+{% endif %}
+{% endfor %}
+
+{% for n in bgp.neighbors_ipv6 | default([]) %}
+ neighbor {{ n.addr }} remote-as {{ n.remote_as }}
+{% if not n.edge_isp | default(false) %}
+ neighbor {{ n.addr }} update-source Loopback0
+{% endif %}
+{% endfor %}
+
+ address-family ipv4
+{% for net in bgp.networks_ipv4 | default([]) %}
+  network {{ net.split('/')[0] }} mask {{ net | ipaddr('netmask') }}
+{% endfor %}
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+  neighbor {{ n.addr }} activate
+{% if n.rr | default(false) %}
+  neighbor {{ n.addr }} next-hop-self
+{% endif %}
+{% endfor %}
+ exit-address-family
+
+ address-family ipv6
+{% for net in bgp.networks_ipv6 | default([]) %}
+  network {{ net }}
+{% endfor %}
+{% for n in bgp.neighbors_ipv6 | default([]) %}
+  neighbor {{ n.addr }} activate
+{% if n.rr | default(false) %}
+  neighbor {{ n.addr }} next-hop-self
+{% endif %}
+{% endfor %}
+ exit-address-family
+
+{% if role == 'rr' and bgp.vpn_rr | default(true) %}
+ address-family vpnv4
+{% for c in rr_clients_ipv4 %}
+  neighbor {{ c }} activate
+  neighbor {{ c }} send-community extended
+  neighbor {{ c }} route-reflector-client
+{% endfor %}
+ exit-address-family
+
+ address-family vpnv6
+{% for c in rr_clients_ipv4 %}
+  neighbor {{ c }} activate
+  neighbor {{ c }} send-community extended
+  neighbor {{ c }} route-reflector-client
+{% endfor %}
+ exit-address-family
+{% endif %}
+
+{% if role == 'pe' %}
+{% if vpnv4_enabled | default(false) %}
+ address-family vpnv4
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+{% if n.rr | default(false) %}
+  neighbor {{ n.addr }} activate
+  neighbor {{ n.addr }} send-community extended
+{% endif %}
+{% endfor %}
+ exit-address-family
+{% endif %}
+
+{% if vpnv6_enabled | default(false) %}
+ address-family vpnv6
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+{% if n.rr | default(false) %}
+  neighbor {{ n.addr }} activate
+  neighbor {{ n.addr }} send-community extended
+{% endif %}
+{% endfor %}
+ exit-address-family
+{% endif %}
+
+{% for v in bgp.vrfs | default([]) %}
+vrf definition {{ v.name }}
+ rd {{ vrfs[0].rd }}
+{% for rt in vrfs[0].rt_import %}
+ route-target import {{ rt }}
+{% endfor %}
+{% for rt in vrfs[0].rt_export %}
+ route-target export {{ rt }}
+{% endfor %}
+ address-family ipv4
+ exit-address-family
+ address-family ipv6
+ exit-address-family
+!
+router bgp {{ asn }}
+ address-family ipv4 vrf {{ v.name }}
+{% if v.ipv4_redistribute_connected %}
+  redistribute connected
+{% endif %}
+ exit-address-family
+ address-family ipv6 vrf {{ v.name }}
+{% if v.ipv6_redistribute_connected %}
+  redistribute connected
+{% endif %}
+ exit-address-family
+{% endfor %}
+{% endif %}
+
+{% endif %}
+
+{% if role == 'isp' %}
+router bgp {{ asn }}
+ bgp router-id {{ bgp.router_id }}
+ bgp log-neighbor-changes
+
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+ neighbor {{ n.addr }} remote-as {{ n.remote_as }}
+{% endfor %}
+
+{% for n in bgp.neighbors_ipv6 | default([]) %}
+ neighbor {{ n.addr }} remote-as {{ n.remote_as }}
+{% endfor %}
+
+ address-family ipv4
+{% for net in bgp.networks_ipv4 | default([]) %}
+  network {{ net.split('/')[0] }} mask {{ net | ipaddr('netmask') }}
+{% endfor %}
+{% for n in bgp.neighbors_ipv4 | default([]) %}
+  neighbor {{ n.addr }} activate
+{% endfor %}
+ exit-address-family
+
+ address-family ipv6
+{% for net in bgp.networks_ipv6 | default([]) %}
+  network {{ net }}
+{% endfor %}
+{% for n in bgp.neighbors_ipv6 | default([]) %}
+  neighbor {{ n.addr }} activate
+{% endfor %}
+ exit-address-family
+{% endif %}
+
+end
